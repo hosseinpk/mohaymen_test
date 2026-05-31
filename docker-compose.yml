@@ -1,0 +1,51 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: city_postgres
+    environment:
+      POSTGRES_USER: mohaymen
+      POSTGRES_PASSWORD: mohaymen
+      POSTGRES_DB: cc
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mohaymen -d cc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: postgresql+asyncpg://mohaymen:mohaymen@postgres:5432/cc
+    volumes:
+      - .:/app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+  api:
+    build: .
+    container_name: city_api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "8000:8000"
+    environment:
+      DB_URL: postgresql+asyncpg://mohaymen:mohaymen@postgres:5432/cc
+    volumes:
+      - .:/app
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+volumes:
+  postgres_data:

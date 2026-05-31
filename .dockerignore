@@ -1,0 +1,64 @@
+# Git
+.git
+.gitignore
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+.cache/
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.pid
+*.seed
+
+# Local database files
+*.db
+*.sqlite3
+
+# Node (if any frontend leftovers exist)
+node_modules/
+
+# Documentation / misc
+*.md
+
+# Docker compose files usually not needed inside image
+docker-compose.yml
+docker-compose.override.yml
