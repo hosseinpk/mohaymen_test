@@ -31,10 +31,6 @@ app = FastAPI(
 
 app.include_router(city_route, prefix="/api")
 
-@app.get("/redis-ping")
-async def redis_ping(request: Request):
-    pong = await request.app.state.redis.ping()
-    return {"redis": pong,"datetime":datetime.now(timezone.utc).isoformat()}
 
 @app.get("/health",summary="health check")
 async def health_check():
