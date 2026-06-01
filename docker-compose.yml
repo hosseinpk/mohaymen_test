@@ -50,7 +50,7 @@ services:
   seeder:
     build:
       context: .
-      dockerfile: Dockerfile.seed
+      dockerfile: Dockerfile.seeder
     container_name: city_seeder
     restart: "no"
     depends_on:
