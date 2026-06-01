@@ -28,6 +28,66 @@ services:
     command: ["alembic", "upgrade", "head"]
     restart: "no"
 
+  redis:
+    image: redis:alpine
+    container_name: city_redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:latest
+    container_name: city_kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      CLUSTER_ID: "5L6g3nShT-eMCtK--X86sw"
+
+      KAFKA_NODE_ID: "1"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:9094"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT,CONTROLLER:PLAINTEXT"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+
+
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9094 --list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+
+  kafka-init:
+    image: apache/kafka:latest
+    container_name: city_kafka_init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-lc"]
+    command: >
+      "/opt/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092
+      --create --if-not-exists --topic app_logs --partitions 1 --replication-factor 1"
+    restart: "no"
+
   api:
     build: .
     container_name: city_api
@@ -36,11 +96,15 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
     ports:
       - "8000:8000"
     environment:
       DB_URL: postgresql+asyncpg://mohaymen:mohaymen@postgres:5432/cc
       REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_LOG_TOPIC: app_logs
     volumes:
       - .:/app
     healthcheck:
@@ -60,20 +124,7 @@ services:
       api:
         condition: service_healthy
 
-  redis:
-      image: redis:alpine
-      container_name: city_redis
-      ports:
-        - "6379:6379"
-      command: ["redis-server", "--appendonly", "yes"]
-      volumes:
-        - redis_data:/data
-      healthcheck:
-        test: ["CMD", "redis-cli", "ping"]
-        interval: 5s
-        timeout: 3s
-        retries: 20
-
 volumes:
   postgres_data:
   redis_data:
+  kafka_data:
