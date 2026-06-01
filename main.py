@@ -1,21 +1,48 @@
-from fastapi import FastAPI,Request
-from datetime import datetime,timezone
+from fastapi import FastAPI, Request
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from api.route import router as city_route
 import redis.asyncio as redis
+from aiokafka import AIOKafkaProducer
 from core.config import settings
+from services.cache_service import CityCountryCodeCache, cache_config
+from services.kafka_service import KafkaLogger
 
 REDIS_URL = settings.REDIS_URL
+KAFKA_SERVERS = settings.KAFKA_BOOTSTRAP_SERVERS
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.redis = redis.from_url(REDIS_URL, decode_responses=True)
-    print(f" Server started at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}")
+    # 1. Setup Redis & Cache Service
+    redis_client = redis.from_url(REDIS_URL, decode_responses=True)
+    app.state.redis = redis_client
+    # ساخت Wrapper کش که در روتور استفاده می‌شود
+    app.state.city_cache = CityCountryCodeCache(
+        client=redis_client, config=cache_config()
+    )
+
     await app.state.redis.ping()
+    print(
+        f"Server started at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}"
+    )
+
+    # 2. Setup Kafka & Logger Service
+    producer = AIOKafkaProducer(bootstrap_servers=KAFKA_SERVERS)
+    await producer.start()
+    app.state.kafka_producer = producer
+    # ساخت Wrapper لاگر که در روتور استفاده می‌شود
+    app.state.kafka_logger = KafkaLogger(producer=producer, topic="app_logs")
+
     yield
+
+    # Shutdown
+    await producer.stop()
     await app.state.redis.close()
-    print(f" Server shutdown at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}")
+    print(
+        f"Server shutdown at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}"
+    )
+
 
 app = FastAPI(
     title="Mohaymen test API",
@@ -23,15 +50,15 @@ app = FastAPI(
     contact={
         "name": "Hossein",
         "email": "hossein@hossein.com",
-        "url": "https://github.com/hosseinpk/mohaymen_test.git"
+        "url": "https://github.com/hosseinpk/mohaymen_test.git",
     },
     lifespan=lifespan,
 )
 
-
+# چون اینجا prefix="/api" دادی، آدرس نهایی می‌شود: /api/countrycode/{city}
 app.include_router(city_route, prefix="/api")
 
 
-@app.get("/health",summary="health check")
+@app.get("/health", summary="health check")
 async def health_check():
-    return {"status":"ok","datetime":datetime.now(timezone.utc).isoformat()}
+    return {"status": "ok", "datetime": datetime.now(timezone.utc).isoformat()}

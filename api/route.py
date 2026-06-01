@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status,Query,Response
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Response, Request
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
-from schema.cc_schema import CityCreate,CityResponse
+from sqlalchemy import select, func
+from schema.cc_schema import CityCreate, CityResponse
 
 from model.database import get_db
 from model.cc_model import CountryCodeCity
 
-
 router = APIRouter(prefix="", tags=["City"])
+
+ENDPOINT_TEMPLATE = "/countrycode/{city}"
 
 
 @router.post("/cities", response_model=CityResponse)
@@ -53,3 +54,72 @@ async def get_cities(
 
     result = await db.execute(stmt)
     return result.scalars().all()
+
+
+@router.get("/countrycode/{city}")
+async def get_country_code(
+    city: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+
+    cache = request.app.state.city_cache
+    kafka_logger = request.app.state.kafka_logger
+
+    normalized_city = city.strip()
+
+    cached_country_code = await cache.get(normalized_city)
+    if cached_country_code is not None:
+        await kafka_logger.log(
+            {
+                "event": "cache_hit",
+                "city": normalized_city,
+                "countrycode": cached_country_code,
+                "endpoint": ENDPOINT_TEMPLATE,
+                "source": "cache",
+            },
+            key=normalized_city.lower(),
+        )
+        return {
+            "city": normalized_city,
+            "countrycode": cached_country_code,
+            "source": "cache",
+        }
+
+    result = await db.execute(
+        select(CountryCodeCity).where(
+            func.lower(CountryCodeCity.city) == normalized_city.lower()
+        )
+    )
+    city_obj = result.scalar_one_or_none()
+
+    if city_obj is None:
+        await kafka_logger.log(
+            {
+                "event": "city_not_found",
+                "city": normalized_city,
+                "endpoint": ENDPOINT_TEMPLATE,
+                "source": "database",
+            },
+            key=normalized_city.lower(),
+        )
+        raise HTTPException(status_code=404, detail="City not found")
+
+    await cache.set(normalized_city, city_obj.countrycode)
+
+    await kafka_logger.log(
+        {
+            "event": "cache_miss",
+            "city": normalized_city,
+            "countrycode": city_obj.countrycode,
+            "endpoint": ENDPOINT_TEMPLATE,
+            "source": "database",
+        },
+        key=normalized_city.lower(),
+    )
+
+    return {
+        "city": normalized_city,
+        "countrycode": city_obj.countrycode,
+        "source": "database",
+    }

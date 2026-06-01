@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 
+
 class CityCreate(BaseModel):
     city: str
     countrycode: str

@@ -8,8 +8,7 @@ from alembic import context
 
 from core.config import settings
 from model.database import Base
-from model.cc_model import CountryCodeCity  
-
+from model.cc_model import CountryCodeCity
 
 config = context.config
 
@@ -60,6 +59,7 @@ async def run_migrations_online() -> None:
 
 def run_migrations_online_wrapper() -> None:
     import asyncio
+
     asyncio.run(run_migrations_online())
 
 
