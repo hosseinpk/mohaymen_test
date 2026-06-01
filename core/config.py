@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 class Settings(BaseSettings):
 
     DB_URL: str
+    REDIS_URL: str
 
 
     model_config = SettingsConfigDict(

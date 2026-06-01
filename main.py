@@ -1,13 +1,20 @@
-from fastapi import FastAPI
+from fastapi import FastAPI,Request
 from datetime import datetime,timezone
 from contextlib import asynccontextmanager
 from api.route import router as city_route
+import redis.asyncio as redis
+from core.config import settings
+
+REDIS_URL = settings.REDIS_URL
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    app.state.redis = redis.from_url(REDIS_URL, decode_responses=True)
     print(f" Server started at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}")
+    await app.state.redis.ping()
     yield
+    await app.state.redis.close()
     print(f" Server shutdown at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}")
 
 app = FastAPI(
@@ -23,6 +30,11 @@ app = FastAPI(
 
 
 app.include_router(city_route, prefix="/api")
+
+@app.get("/redis-ping")
+async def redis_ping(request: Request):
+    pong = await request.app.state.redis.ping()
+    return {"redis": pong,"datetime":datetime.now(timezone.utc).isoformat()}
 
 @app.get("/health",summary="health check")
 async def health_check():
