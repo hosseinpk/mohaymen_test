@@ -14,10 +14,10 @@ KAFKA_SERVERS = settings.KAFKA_BOOTSTRAP_SERVERS
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Setup Redis & Cache Service
+    
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     app.state.redis = redis_client
-    # ساخت Wrapper کش که در روتور استفاده می‌شود
+    
     app.state.city_cache = CityCountryCodeCache(
         client=redis_client, config=cache_config()
     )
@@ -27,16 +27,16 @@ async def lifespan(app: FastAPI):
         f"Server started at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}"
     )
 
-    # 2. Setup Kafka & Logger Service
+    
     producer = AIOKafkaProducer(bootstrap_servers=KAFKA_SERVERS)
     await producer.start()
     app.state.kafka_producer = producer
-    # ساخت Wrapper لاگر که در روتور استفاده می‌شود
+    
     app.state.kafka_logger = KafkaLogger(producer=producer, topic="app_logs")
 
     yield
 
-    # Shutdown
+    
     await producer.stop()
     await app.state.redis.close()
     print(
@@ -55,7 +55,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# چون اینجا prefix="/api" دادی، آدرس نهایی می‌شود: /api/countrycode/{city}
+
 app.include_router(city_route, prefix="/api")
 
 
