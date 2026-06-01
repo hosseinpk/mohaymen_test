@@ -7,7 +7,7 @@ from model.database import get_db
 from model.cc_model import CountryCodeCity
 
 
-router = APIRouter(prefix="/cities", tags=["City"])
+router = APIRouter(prefix="", tags=["City"])
 
 
 @router.post("/cities", response_model=CityResponse, status_code=status.HTTP_201_CREATED)
@@ -17,7 +17,7 @@ async def create_city(
 ):
     stmt = select(CountryCodeCity).where(
         CountryCodeCity.city == payload.city,
-        CountryCodeCity.country_code == payload.country_code
+        CountryCodeCity.countrycode == payload.countrycode
     )
     result = await db.execute(stmt)
     existing = result.scalar_one_or_none()
@@ -30,7 +30,7 @@ async def create_city(
 
     obj = CountryCodeCity(
         city=payload.city,
-        country_code=payload.country_code
+        countrycode=payload.countrycode
     )
 
     db.add(obj)

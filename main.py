@@ -22,7 +22,7 @@ app = FastAPI(
 )
 
 
-app.include_router(city_route, prefix="/api/")
+app.include_router(city_route, prefix="/api")
 
 @app.get("/health",summary="health check")
 async def health_check():

@@ -7,8 +7,8 @@ CSV_PATH = "CountryCode-City.csv"
 
 def post_data(client: httpx.Client,city:str,code:str):
     try:
-        res = client.post(f"{API_BASE}/cities",
-                                json={"city":city,"country_code": code},
+        res = client.post(f"{API_BASE}/api/cities",
+                                json={"city":city,"countrycode": code},
                                 timeout=10)
         if res.status_code in (200,201):
             return True
