@@ -47,5 +47,15 @@ services:
       retries: 10
       start_period: 10s
 
+  seeder:
+    build:
+      context: .
+      dockerfile: Dockerfile.seeder
+    container_name: city_seeder
+    restart: "no"
+    depends_on:
+      api:
+        condition: service_healthy
+
 volumes:
   postgres_data:

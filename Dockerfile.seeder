@@ -1,0 +1,10 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir httpx
+
+COPY ./seed_db.py ./seed_db.py
+COPY ./CountryCode-City.csv ./CountryCode-City.csv
+
+CMD ["python", "seed_db.py"]
