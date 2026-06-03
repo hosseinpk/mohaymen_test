@@ -14,7 +14,10 @@ KAFKA_SERVERS = settings.KAFKA_BOOTSTRAP_SERVERS
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    
+    print(
+        f"Server started at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}"
+    )
+  
     redis_client = redis.from_url(REDIS_URL, decode_responses=True)
     app.state.redis = redis_client
     
@@ -23,10 +26,6 @@ async def lifespan(app: FastAPI):
     )
 
     await app.state.redis.ping()
-    print(
-        f"Server started at {datetime.now(timezone.utc).strftime('%d/%m/%Y, %H:%M:%S')}"
-    )
-
     
     producer = AIOKafkaProducer(bootstrap_servers=KAFKA_SERVERS)
     await producer.start()
